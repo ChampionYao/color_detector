@@ -1,4 +1,5 @@
 #include <opencv2/opencv.hpp>
+#include<opencv2/highgui.hpp>
 
 enum color_type {RED=0, GREEN, BLUE};
 
@@ -55,7 +56,7 @@ cv::Mat distinguish_color(const cv::Mat &inputImage, const color_type &type)
         break;
     case 1:
         color = green;
-        h_min_1 = 35;
+        h_min_1 = 30;
         h_max_1 = 99;
         h_min_2 = h_min_1;
         h_max_2 = h_max_1;
@@ -170,18 +171,28 @@ cv::Point2i calculate_center(const cv::Mat &inputImage)
             y<min_y ? min_y=y : min_y=min_y;
         }
     }
+
+    cv::Point2i center;
+    if(min_x==inputImage_gray.cols && max_x==0 && min_y==inputImage_gray.rows && max_y==0)
+    {
+        center = cv::Point2i(-1000,-1000);
+    }
+    else
+    {
+        cv::line(frame, cv::Point2i(min_x, min_y), cv::Point2i(max_x, min_y), color, linewidth, 8, 0);
+        cv::line(frame, cv::Point2i(max_x, min_y), cv::Point2i(max_x, max_y), color, linewidth, 8, 0);
+        cv::line(frame, cv::Point2i(max_x, max_y), cv::Point2i(min_x, max_y), color, linewidth, 8, 0);
+        cv::line(frame, cv::Point2i(min_x, max_y), cv::Point2i(min_x, min_y), color, linewidth, 8, 0);
+
+        center = cv::Point2i((min_x+max_x)*0.5, (min_y+max_y)*0.5);
+        cv::circle(frame, center, linewidth, color, -1, 8, 0 );
+        
+        cv::imwrite("../files/calculate_center.jpg",frame);
+
+    }
     
-    cv::line(frame, cv::Point2i(min_x, min_y), cv::Point2i(max_x, min_y), color, linewidth, 8, 0);
-    cv::line(frame, cv::Point2i(max_x, min_y), cv::Point2i(max_x, max_y), color, linewidth, 8, 0);
-    cv::line(frame, cv::Point2i(max_x, max_y), cv::Point2i(min_x, max_y), color, linewidth, 8, 0);
-    cv::line(frame, cv::Point2i(min_x, max_y), cv::Point2i(min_x, min_y), color, linewidth, 8, 0);
-
-    cv::Point2i center = cv::Point2i((min_x+max_x)*0.5, (min_y+max_y)*0.5);
-    cv::circle(frame, center, linewidth, color, -1, 8, 0 );
-	
-	cv::imwrite("../files/calculate_center.jpg",frame);
-
     return center;
+    
 }
 
 int main()
@@ -208,11 +219,19 @@ int main()
 
     // std::cout<<pixel_to_position(H, position_to_pixel(H, position))<<std::endl;
 
-    int test_pic_num = 3;
-    for(int i=0; i<test_pic_num; i++)
+    cv::VideoCapture capture(0);
+    while (true)
     {
-        std::string map_name = "../files/test" + std::to_string(i) + ".jpg";
-        cv::Mat inputImage = cv::imread(map_name, 1);
+        cv::Mat frame;
+        capture >> frame;
+
+        cv::Rect Left(0, 0, frame.cols/2, frame.rows);
+        cv::Mat frame_l = frame(Left);
+
+
+        cv::Mat inputImage = frame_l.clone();
+        
+        frame.clone();
         int linewidth = 20;
 
         cv::Point2i pixel_red = calculate_center(distinguish_color(inputImage, RED));
@@ -225,17 +244,20 @@ int main()
         cv::circle(inputImage, pixel_green, linewidth, cv::Scalar(0,255,0), -1, 8, 0);
         cv::circle(inputImage, pixel_green, linewidth, cv::Scalar(0,0,0), 3, 8, 0);
 
-        
+        cv::namedWindow("camera_l", 0);
+        cvResizeWindow("camera_l", 960, 960/frame_l.cols*frame_l.rows);
+        cv::moveWindow("camera_l",500,250);
+        cv::imshow("camera_l", frame_l);
+
         cv::namedWindow("result", 0);
-        cvResizeWindow("result", 960, 540);
-        cv::moveWindow("result",960,250);
+        cvResizeWindow("result", 960, 960/inputImage.cols*inputImage.rows);
+        cv::moveWindow("result",1500,250);
         cv::imshow("result", inputImage);
-        cv::waitKey(0);
+        cv::waitKey(1);
 
 
     }
 
-    
 
     return 0;
 }
