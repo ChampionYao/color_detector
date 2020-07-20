@@ -1,27 +1,29 @@
-#include <opencv2/opencv.hpp>
-#include<opencv2/highgui.hpp>
+#include "ColorDetector.h"
 
-enum color_type {RED=0, GREEN, BLUE};
+ColorDetector::ColorDetector()
+{
 
-cv::Point2i position_to_pixel(const cv::Mat &H, const cv::Mat &position)
+}
+
+cv::Point2f ColorDetector::position_to_pixel(const cv::Mat &H, const cv::Mat &position)
 {
     //normalization
     cv::Mat H_1 = H / H.at<double>(2,2);
 
     cv::Mat pixel = H_1.inv() * position;
 
-    int x = pixel.at<double>(0,0)/pixel.at<double>(2,0);
-    int y = pixel.at<double>(1,0)/pixel.at<double>(2,0);
+    float x = pixel.at<double>(0,0)/pixel.at<double>(2,0);
+    float y = pixel.at<double>(1,0)/pixel.at<double>(2,0);
 
     //the x, y should be exchange because of the image frame
-    return cv::Point2i(y, x);
+    return cv::Point2f(x, y);
 }
 
-cv::Mat pixel_to_position(const cv::Mat &H, const cv::Point2i &pixel)
+cv::Mat ColorDetector::pixel_to_position(const cv::Mat &H, const cv::Point2f &pixel)
 {
     cv::Mat p = (cv::Mat_ <double>(3, 1) << 
-                    pixel.y, 
-                    pixel.x,
+                    pixel.x, 
+                    pixel.y,
                     1
                     );
     cv::Mat H_1 = H / H.at<double>(2,2);
@@ -31,7 +33,7 @@ cv::Mat pixel_to_position(const cv::Mat &H, const cv::Point2i &pixel)
 
 }
 
-cv::Mat distinguish_color(const cv::Mat &inputImage, const color_type &type)
+cv::Mat ColorDetector::distinguish_color(const cv::Mat &inputImage, const color_type &type)
 {
     CvScalar red = CvScalar(0, 0, 255);
     CvScalar green = CvScalar(0, 255, 0);
@@ -123,7 +125,7 @@ cv::Mat distinguish_color(const cv::Mat &inputImage, const color_type &type)
 
 }
 
-cv::Point2i calculate_center(const cv::Mat &inputImage)
+cv::Point2i ColorDetector::calculate_center(const cv::Mat &inputImage)
 {
     //Binarization
     cv::Mat inputImage_gray;
@@ -195,29 +197,55 @@ cv::Point2i calculate_center(const cv::Mat &inputImage)
     
 }
 
-int main()
+cv::Mat ColorDetector::find_H_test()
 {
-    // cv::Mat image = cv::imread("../files/780.jpg", 1);
+    cv::Mat H = (cv::Mat_ <double>(3, 3) << 
+                    2.8128700e-02, 2.0091900e-03, -4.6693600e+00,
+                    8.0625700e-04, 2.5195500e-02, -5.0608800e+00,
+                    3.4555400e-04, 9.2512200e-05, 4.6255300e-01
+                    );
 
-    // // The positions is in meters and are obtained with the homography matrix H.
-    // cv::Mat position = (cv::Mat_ <double>(3, 1) << 
-    //                         8.4568443e+00, 
-    //                         3.5880664e+00,
-    //                         1
-    //                         );
+    std::vector<cv::Point2f> img_p;
+    std::vector<cv::Point2f> world_p;
 
-    // cv::Mat H = (cv::Mat_ <double>(3, 3) << 
-    //                 2.8128700e-02, 2.0091900e-03, -4.6693600e+00,
-    //                 8.0625700e-04, 2.5195500e-02, -5.0608800e+00,
-    //                 3.4555400e-04, 9.2512200e-05, 4.6255300e-01
-    //                 );
+    for(int i=0; i<90; i++)
+    {
+        cv::Point2f p = cv::Point2f(drand48()*100, drand48()*100);
+        world_p.push_back(p);
+        cv::Mat position = (cv::Mat_ <double>(3, 1) << 
+                            p.x, 
+                            p.y,
+                            1
+                            );
+        cv::Point2f pixel = position_to_pixel(H, position);
+        img_p.push_back(pixel);
+    }
 
 
-    // cv::circle(image, position_to_pixel(H, position), 10, cv::Scalar(0,0,255), 2);
-    // cv::imshow("frame", image);
-    // cv::waitKey(0);
+    cv::Mat cal_H = findHomography(img_p, world_p, cv::RHO);
 
-    // std::cout<<pixel_to_position(H, position_to_pixel(H, position))<<std::endl;
+    std::cout<<cal_H<<std::endl;
+
+    cv::Mat H_1 = H / H.at<double>(2,2);
+    std::cout<<H_1<<std::endl;
+
+    return cal_H;
+}
+
+
+cv::Mat ColorDetector::find_H()
+{
+    //the landmarks on world
+    //find them in the image
+
+
+    std::vector<cv::Point2f> img_p;
+    std::vector<cv::Point2f> world_p;
+
+    cv::Size patternsize(8,6);
+    std::vector<cv::Point2f> corners;
+
+    cv::Mat inputImage;
 
     cv::VideoCapture capture(0);
     while (true)
@@ -228,36 +256,46 @@ int main()
         cv::Rect Left(0, 0, frame.cols/2, frame.rows);
         cv::Mat frame_l = frame(Left);
 
-
-        cv::Mat inputImage = frame_l.clone();
+        inputImage = frame_l.clone();
         
-        frame.clone();
-        int linewidth = 20;
-
-        cv::Point2i pixel_red = calculate_center(distinguish_color(inputImage, RED));
-        std::cout<<"red: "<<pixel_red<<std::endl;
-        cv::circle(inputImage, pixel_red, linewidth, cv::Scalar(0,0,255), -1, 8, 0);
-        cv::circle(inputImage, pixel_red, linewidth, cv::Scalar(0,0,0), 3, 8, 0);
-
-        cv::Point2i pixel_green = calculate_center(distinguish_color(inputImage, GREEN));
-        std::cout<<"green: "<<pixel_green<<std::endl;
-        cv::circle(inputImage, pixel_green, linewidth, cv::Scalar(0,255,0), -1, 8, 0);
-        cv::circle(inputImage, pixel_green, linewidth, cv::Scalar(0,0,0), 3, 8, 0);
-
-        cv::namedWindow("camera_l", 0);
-        cvResizeWindow("camera_l", 960, 960/frame_l.cols*frame_l.rows);
-        cv::moveWindow("camera_l",500,250);
-        cv::imshow("camera_l", frame_l);
-
-        cv::namedWindow("result", 0);
-        cvResizeWindow("result", 960, 960/inputImage.cols*inputImage.rows);
-        cv::moveWindow("result",1500,250);
-        cv::imshow("result", inputImage);
+        bool patternfound = findChessboardCorners(inputImage, patternsize, corners, cv::CALIB_CB_ADAPTIVE_THRESH + cv::CALIB_CB_NORMALIZE_IMAGE + cv::CALIB_CB_FAST_CHECK);
+        if(patternfound)
+        {
+            img_p = corners;
+            break;
+        }
+        cv::imshow("chess board", frame_l);
         cv::waitKey(1);
-
 
     }
 
 
-    return 0;
+    std::cout<<1<<std::endl;
+
+    for(auto p : corners)
+    {
+        cv::circle(inputImage, p, 3, cv::Scalar(255, 0, 0), 1, 8, 0);
+        cv::imshow("chess board", inputImage);
+        cv::waitKey(100);
+    }
+    cv::waitKey(0);
+
+    
+    cv::Point2f origin = cv::Point2f(0,0);
+    float size = 0.005;
+    
+    for(int i=1; i<=patternsize.height; i++)
+    {
+        for(int j=1; j<=patternsize.width; j++)
+        {
+            cv::Point2f q = origin + cv::Point2f(j*size, i*size);
+            world_p.push_back(q);
+        }
+    }
+    
+ 
+    cv::Mat cal_H = findHomography(img_p, world_p, cv::RHO);
+    std::cout<<cal_H<<std::endl;
+
+    return cal_H;
 }
